@@ -1,0 +1,184 @@
+﻿@page "/create"
+@page "/update/{LoginId:int}"
+@using AutoMapper
+@using LoginDetailManagement.Entities
+@using LoginDetailManagement.Models
+@using LoginDetailManagement.Services
+@using LoginDetailManagement.Services.interfaces
+
+@inject NavigationManager NavManager
+
+@inherits OwningComponentBase<ILoginDetailService>
+
+
+<PageTitle>
+    @if (LoginId > 0)
+    {
+        <span>Update</span>
+    }
+    else
+    {
+        <span>Add Login Detail</span>
+    }
+</PageTitle>
+
+<div class="d-flex justify-content-center align-items-center">
+    @if (WrongData == true)
+    {
+        <div class="alert alert-danger">
+            Can Not Find Login Detail!
+            <br>
+            <button @onclick="Back" class="btn btn-secondary" type="button">Back To List</button>
+
+        </div>
+    }
+    else
+    {
+
+        <EditForm Model="@loginDetailDto" OnValidSubmit="@register">
+            <DataAnnotationsValidator />
+
+            <div class="login-panel shadow p-4 m-4">
+                <div class="d-flex flex-column justify-content-center my-3">
+                    @if (LoginId > 0)
+                    {
+                        <h3>Update</h3>
+                    }
+                    else
+                    {
+                        <h3>Add Login Detail</h3>
+                    }
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Title</label>
+                    <InputText @bind-Value="loginDetailDto.Title" class="form-control" placeholder="example: facebook"></InputText>
+                    <ValidationMessage For="@(()=> loginDetailDto.Title)" />
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">User Name</label>
+                    <InputText @bind-Value="loginDetailDto.UserName" class="form-control"></InputText>
+                    <ValidationMessage For="@(()=> loginDetailDto.UserName)" />
+                </div>
+
+                <div class="mb-4">
+                    <label class="form-label">Password</label>
+                    <InputText type="password" @bind-Value="loginDetailDto.Password" class="form-control"></InputText>
+                    <ValidationMessage For="@(()=> loginDetailDto.Password)" />
+
+                </div>
+
+                @if (IsFaild == true)
+                {
+                    <div class="alert alert-danger">
+                        Faild Operation!
+                        <br>
+                        Please Try Again.
+                    </div>
+                }
+
+                <div class="d-grid">
+                    <button class="btn btn-primary" type="submit">
+                        @if (LoginId > 0)
+                        {
+                            <span>Save</span>
+                        }
+                        else
+                        {
+                            <span>Create</span>
+                        }
+                    </button>
+                </div>
+            </div>
+        </EditForm>
+    }
+</div>
+
+
+@code {
+    [Parameter]
+    public int LoginId { get; set; }
+
+    private LoginDetailDto loginDetailDto = new LoginDetailDto();
+
+    [Inject]
+    public IMapper _mapper { get; set; }
+
+    private CancellationTokenSource _cts = new();
+
+    private bool IsFaild = false;
+    private bool WrongData = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+
+            if (LoginId > 0)
+            {
+                var loginDetail = await Service.GetById(LoginId, _cts.Token);
+
+                if (loginDetail != null)
+                {
+                    loginDetailDto = _mapper.Map<LoginDetailDto>(loginDetail);
+                }
+                else
+                {
+                    WrongData = true;
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Serilog.Log.Error(ex.Message);
+            throw;
+        }
+    }
+
+    protected async Task register()
+    {
+        try
+        {
+            IsFaild = false;
+
+            var loginDetail = _mapper.Map<LoginDetail>(loginDetailDto);
+            loginDetail.Id = 0;
+
+            if (LoginId > 0)
+            {
+                var result = await Service.Update(LoginId, loginDetail, _cts.Token);
+                if (result == true)
+                {
+                    NavManager.NavigateTo("/");
+                }
+                else
+                {
+                    IsFaild = true;
+                }
+            }
+            else
+            {
+                var result = await Service.Add(loginDetail, _cts.Token);
+                if (result != null)
+                {
+                    NavManager.NavigateTo("/");
+                }
+                else
+                {
+                    IsFaild = true;
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Serilog.Log.Error(ex.Message);
+            throw;
+        }
+
+    }
+
+    void Back()
+    {
+        NavManager.NavigateTo("/");
+    }
+}

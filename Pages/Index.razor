@@ -1,0 +1,105 @@
+﻿@page "/"
+@using AutoMapper
+@using LoginDetailManagement.Models
+@using LoginDetailManagement.Services
+@using LoginDetailManagement.Services.interfaces
+
+@inject NavigationManager NavManager
+@inject IJSRuntime JSRuntime
+
+@inherits OwningComponentBase<ILoginDetailService>
+
+<PageTitle>Login Details</PageTitle>
+
+@if (loginDetails.Count == 0)
+{
+    <div class="w-100 vh-100 d-flex justify-content-center align-items-center">
+        <h2>Not Found Any Login</h2>
+    </div>
+}
+else
+{
+
+    <h1>Login Details</h1>
+
+
+    <table class="table">
+        <thead>
+            <tr>
+                <th class="text-center">Title</th>
+                <th class="text-center">User Name</th>
+                <th class="text-center">Password</th>
+                <th class="text-center">Action</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var loginDetail in loginDetails)
+            {
+                <tr>
+                    <td>@loginDetail.Title</td>
+                    <td>@loginDetail.UserName</td>
+                    <td class="text-center">
+                        <button @onclick="() => ShowPassword(loginDetail.Password)" class="btn btn-secondary" type="button">Show Password</button>
+                    </td>
+                    <td class="text-center">
+                        <button @onclick="() => Update(loginDetail.Id)" class="btn btn-primary" type="button">Edit</button>
+                        <button @onclick="() => Delete(loginDetail.Id,loginDetail.UserName)" class="btn btn-danger" type="button">Delete</button>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+
+@code {
+    private List<LoginDetailDto> loginDetails = new List<LoginDetailDto>();
+
+    [Inject]
+    public IMapper _mapper { get; set; }
+
+    private CancellationTokenSource _cts = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var result = await Service.GetAll(_cts.Token);
+
+            loginDetails = _mapper.Map<List<LoginDetailDto>>(result);
+        }
+        catch (Exception ex)
+        {
+            Serilog.Log.Error(ex.Message);
+            throw;
+        }
+    }
+
+    void Update(int loginId)
+    {
+        NavManager.NavigateTo("/update/" + loginId);
+    }
+
+    async Task Delete(int loginId, string userName)
+    {
+        try
+        {
+            if (!await JSRuntime.InvokeAsync<bool>("confirm", $"Are you sure you want to delete the UserName: '{userName}'?"))
+                return;
+
+            var result = await Service.Delete(loginId, _cts.Token);
+
+            var logins = await Service.GetAll(_cts.Token);
+            loginDetails = _mapper.Map<List<LoginDetailDto>>(logins);
+        }
+        catch (Exception ex)
+        {
+            Serilog.Log.Error(ex.Message);
+            throw;
+        }
+    }
+
+    async Task ShowPassword(string password)
+    {
+        await JSRuntime.InvokeVoidAsync("alert", $"Your Password is: {password}");
+    }
+}
